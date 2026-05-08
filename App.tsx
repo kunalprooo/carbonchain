@@ -18,8 +18,9 @@ interface Goal {
 }
 
 export default function App() {
-  const [screen, setScreen] = useState<'home' | 'input' | 'dashboard' | 'reports' | 'settings'>('home');
+  const [screen, setScreen] = useState<'home' | 'company' | 'input' | 'dashboard'>('home');
   const [companyName, setCompanyName] = useState('');
+  const [tempCompanyName, setTempCompanyName] = useState('');
   const [supplierName, setSupplierName] = useState('');
   const [supplierEmissions, setSupplierEmissions] = useState('');
   const [supplierCategory, setSupplierCategory] = useState('Manufacturing');
@@ -32,6 +33,16 @@ export default function App() {
   const [filterCategory, setFilterCategory] = useState<string | null>(null);
 
   const categories = ['Manufacturing', 'Logistics', 'Packaging', 'Energy', 'Other'];
+
+  const confirmCompanyName = () => {
+    if (!tempCompanyName.trim()) {
+      Alert.alert('Error', 'Please enter a company name');
+      return;
+    }
+    setCompanyName(tempCompanyName);
+    setTempCompanyName('');
+    setScreen('input');
+  };
 
   const addSupplier = () => {
     if (!supplierName || !supplierEmissions) {
@@ -142,10 +153,10 @@ export default function App() {
         <TouchableOpacity
           style={styles.button}
           onPress={() => {
-            setCompanyName('');
+            setTempCompanyName('');
             setSuppliers([]);
             setGoals([]);
-            setScreen('input');
+            setScreen('company');
           }}
         >
           <Text style={styles.buttonText}>Start Now →</Text>
@@ -154,131 +165,141 @@ export default function App() {
     );
   }
 
+  if (screen === 'company') {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>🏢 Your Company</Text>
+          <Text style={styles.subtitle}>Enter company details</Text>
+        </View>
+
+        <ScrollView style={styles.content}>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Company Name</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g., Nike Inc, Apple, Tesla"
+              value={tempCompanyName}
+              onChangeText={setTempCompanyName}
+              editable={true}
+            />
+            <TouchableOpacity
+              style={styles.button}
+              onPress={confirmCompanyName}
+            >
+              <Text style={styles.buttonText}>Continue →</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.button, styles.backButton]}
+              onPress={() => setScreen('home')}
+            >
+              <Text style={styles.buttonText}>← Back</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </View>
+    );
+  }
+
   if (screen === 'input') {
     return (
       <View style={styles.container}>
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>📝 Setup</Text>
-          <Text style={styles.subtitle}>{companyName || 'Enter your company'}</Text>
+          <Text style={styles.headerTitle}>📝 {companyName}</Text>
+          <Text style={styles.subtitle}>Add your suppliers</Text>
         </View>
 
         <ScrollView style={styles.content}>
-          {!companyName && (
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Company Name</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="e.g., Nike Inc"
-                value={companyName}
-                onChangeText={setCompanyName}
-              />
+          <View style={styles.tabs}>
+            <TouchableOpacity style={styles.tabActive}>
+              <Text style={styles.tabTextActive}>Add Suppliers</Text>
+            </TouchableOpacity>
+          </View>
+
+          <Text style={styles.label}>Supplier Name</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="e.g., Samsung Electronics"
+            value={supplierName}
+            onChangeText={setSupplierName}
+          />
+
+          <Text style={styles.label}>CO2 Emissions (kg)</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="e.g., 10000"
+            value={supplierEmissions}
+            onChangeText={setSupplierEmissions}
+            keyboardType="decimal-pad"
+          />
+
+          <Text style={styles.label}>Category</Text>
+          <ScrollView horizontal style={styles.categoryScroll}>
+            {categories.map(cat => (
               <TouchableOpacity
-                style={styles.button}
-                onPress={() => {
-                  if (companyName.trim()) {
-                    // Continue
-                  }
-                }}
+                key={cat}
+                style={[
+                  styles.categoryBtn,
+                  supplierCategory === cat && styles.categoryBtnActive,
+                ]}
+                onPress={() => setSupplierCategory(cat)}
               >
-                <Text style={styles.buttonText}>Continue →</Text>
+                <Text style={supplierCategory === cat ? styles.categoryTextActive : styles.categoryText}>
+                  {cat}
+                </Text>
               </TouchableOpacity>
-            </View>
+            ))}
+          </ScrollView>
+
+          <TouchableOpacity
+            style={styles.button}
+            onPress={addSupplier}
+          >
+            <Text style={styles.buttonText}>+ Add Supplier</Text>
+          </TouchableOpacity>
+
+          {suppliers.length > 0 && (
+            <TouchableOpacity
+              style={[styles.button, styles.successButton]}
+              onPress={() => setScreen('dashboard')}
+            >
+              <Text style={styles.buttonText}>View Dashboard →</Text>
+            </TouchableOpacity>
           )}
 
-          {companyName && (
-            <View>
-              <View style={styles.tabs}>
-                <TouchableOpacity style={styles.tabActive}>
-                  <Text style={styles.tabTextActive}>Add Suppliers</Text>
+          <Text style={styles.sectionTitle}>Suppliers: {suppliers.length}</Text>
+          {getSortedSuppliers().map((supplier) => (
+            <View key={supplier.id} style={styles.supplierCard}>
+              <View style={styles.supplierHeader}>
+                <View style={styles.supplierInfo}>
+                  <Text style={styles.supplierName}>{supplier.name}</Text>
+                  <Text style={styles.supplierCategory}>{supplier.category}</Text>
+                </View>
+                <Text style={styles.supplierEmissions}>{supplier.emissions.toLocaleString()} kg</Text>
+              </View>
+              <View style={styles.supplierActions}>
+                <TouchableOpacity
+                  style={[styles.smallBtn, styles.optimizeBtn]}
+                  onPress={() => optimizeSupplier(supplier.id)}
+                >
+                  <Text style={styles.smallBtnText}>⚡ Optimize</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.smallBtn, styles.deleteBtn]}
+                  onPress={() => deleteSupplier(supplier.id)}
+                >
+                  <Text style={styles.smallBtnText}>✕ Remove</Text>
                 </TouchableOpacity>
               </View>
-
-              <Text style={styles.label}>Supplier Name</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="e.g., Samsung Electronics"
-                value={supplierName}
-                onChangeText={setSupplierName}
-              />
-
-              <Text style={styles.label}>CO2 Emissions (kg)</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="e.g., 10000"
-                value={supplierEmissions}
-                onChangeText={setSupplierEmissions}
-                keyboardType="decimal-pad"
-              />
-
-              <Text style={styles.label}>Category</Text>
-              <ScrollView horizontal style={styles.categoryScroll}>
-                {categories.map(cat => (
-                  <TouchableOpacity
-                    key={cat}
-                    style={[
-                      styles.categoryBtn,
-                      supplierCategory === cat && styles.categoryBtnActive,
-                    ]}
-                    onPress={() => setSupplierCategory(cat)}
-                  >
-                    <Text style={supplierCategory === cat ? styles.categoryTextActive : styles.categoryText}>
-                      {cat}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-
-              <TouchableOpacity
-                style={styles.button}
-                onPress={addSupplier}
-              >
-                <Text style={styles.buttonText}>+ Add Supplier</Text>
-              </TouchableOpacity>
-
-              {suppliers.length > 0 && (
-                <TouchableOpacity
-                  style={[styles.button, styles.successButton]}
-                  onPress={() => setScreen('dashboard')}
-                >
-                  <Text style={styles.buttonText}>View Dashboard →</Text>
-                </TouchableOpacity>
-              )}
-
-              <Text style={styles.sectionTitle}>Suppliers: {suppliers.length}</Text>
-              {getSortedSuppliers().map((supplier) => (
-                <View key={supplier.id} style={styles.supplierCard}>
-                  <View style={styles.supplierHeader}>
-                    <View style={styles.supplierInfo}>
-                      <Text style={styles.supplierName}>{supplier.name}</Text>
-                      <Text style={styles.supplierCategory}>{supplier.category}</Text>
-                    </View>
-                    <Text style={styles.supplierEmissions}>{supplier.emissions.toLocaleString()} kg</Text>
-                  </View>
-                  <View style={styles.supplierActions}>
-                    <TouchableOpacity
-                      style={[styles.smallBtn, styles.optimizeBtn]}
-                      onPress={() => optimizeSupplier(supplier.id)}
-                    >
-                      <Text style={styles.smallBtnText}>⚡ Optimize</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.smallBtn, styles.deleteBtn]}
-                      onPress={() => deleteSupplier(supplier.id)}
-                    >
-                      <Text style={styles.smallBtnText}>✕ Remove</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              ))}
             </View>
-          )}
+          ))}
         </ScrollView>
 
         <TouchableOpacity
           style={[styles.button, styles.backButton]}
           onPress={() => setScreen('home')}
         >
-          <Text style={styles.buttonText}>← Back</Text>
+          <Text style={styles.buttonText}>← Back to Home</Text>
         </TouchableOpacity>
       </View>
     );
@@ -565,8 +586,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#059669',
   },
   backButton: {
-    marginHorizontal: 20,
-    marginBottom: 20,
     backgroundColor: '#6b7280',
   },
   inputGroup: {
